@@ -1,14 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Filter, SlidersHorizontal, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import SearchBar from '../components/ui/SearchBar.jsx';
 import PoojaCard from '../components/pooja/PoojaCard.jsx';
 import Badge from '../components/ui/Badge.jsx';
 import Select from '../components/ui/Select.jsx';
 import Button from '../components/ui/Button.jsx';
 import EmptyState from '../components/feedback/EmptyState.jsx';
+import ErrorState from '../components/feedback/ErrorState.jsx';
 import { CardSkeleton } from '../components/feedback/LoadingSkeleton.jsx';
-import { poojasData } from '../data/poojas.js';
+import { getPoojas } from '../services/poojaService.js';
 import { useToast } from '../components/feedback/ToastContext.jsx';
 
 const PoojasPage = () => {
@@ -21,34 +22,43 @@ const PoojasPage = () => {
   const [maxPrice, setMaxPrice] = useState('all');
   const [locationType, setLocationType] = useState('all');
   const [sortBy, setSortBy] = useState('featured');
-  const [isLoading, setIsLoading] = useState(false);
+  const [page, setPage] = useState(1);
+
+  const [poojas, setPoojas] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, limit: 12, total: 0, pages: 1 });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const categories = ['all', 'Vrat & Katha', 'Housewarming', 'Health & Protection', 'Astrological Remedies', 'Wealth & Prosperity', 'Shiva Worship', 'Obstacle Removal', 'Samskaras'];
 
-  const filteredPoojas = useMemo(() => {
-    return poojasData.filter((pooja) => {
-      const matchesSearch =
-        pooja.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pooja.shortDescription.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pooja.category.toLowerCase().includes(searchTerm.toLowerCase());
+  const fetchPoojas = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const params = {
+        search: searchTerm,
+        category: categoryFilter,
+        maxPrice,
+        location: locationType,
+        sortBy,
+        page,
+        limit: 9,
+      };
+      const result = await getPoojas(params);
+      if (result.success) {
+        setPoojas(result.data);
+        setPagination(result.pagination);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to fetch poojas from API');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchTerm, categoryFilter, maxPrice, locationType, sortBy, page]);
 
-      const matchesCategory =
-        categoryFilter === 'all' || pooja.category === categoryFilter;
-
-      const matchesPrice =
-        maxPrice === 'all' || pooja.price <= parseInt(maxPrice);
-
-      const matchesLocation =
-        locationType === 'all' || pooja.locationType.includes(locationType);
-
-      return matchesSearch && matchesCategory && matchesPrice && matchesLocation;
-    }).sort((a, b) => {
-      if (sortBy === 'price-asc') return a.price - b.price;
-      if (sortBy === 'price-desc') return b.price - a.price;
-      if (sortBy === 'rating') return b.rating - a.rating;
-      return 0; // featured
-    });
-  }, [searchTerm, categoryFilter, maxPrice, locationType, sortBy]);
+  useEffect(() => {
+    fetchPoojas();
+  }, [fetchPoojas]);
 
   const handleResetFilters = () => {
     setSearchTerm('');
@@ -56,11 +66,7 @@ const PoojasPage = () => {
     setMaxPrice('all');
     setLocationType('all');
     setSortBy('featured');
-  };
-
-  const simulateLoading = () => {
-    setIsLoading(true);
-    setTimeout(() => setIsLoading(false), 500);
+    setPage(1);
   };
 
   return (
@@ -73,12 +79,12 @@ const PoojasPage = () => {
             Sacred Poojas & Vedic Havans
           </h1>
           <p className="text-sm text-stone-600 max-w-2xl mt-1">
-            Browse our complete catalog of authentic Hindu rituals, complete with verified priest coordination and sacred samagri.
+            Browse our complete catalog of authentic Hindu rituals, backed by Express REST API and MongoDB.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" leftIcon={<RefreshCw className="w-3.5 h-3.5" />} onClick={simulateLoading}>
+          <Button variant="outline" size="sm" leftIcon={<RefreshCw className="w-3.5 h-3.5" />} onClick={fetchPoojas}>
             Refresh
           </Button>
         </div>
@@ -89,21 +95,24 @@ const PoojasPage = () => {
         <SearchBar
           placeholder="Search by pooja name, category, or occasion..."
           value={searchTerm}
-          onChange={setSearchTerm}
+          onChange={(val) => {
+            setSearchTerm(val);
+            setPage(1);
+          }}
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-stone-100">
           <Select
             label="Category"
             value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
+            onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
             options={categories.map((c) => ({ label: c === 'all' ? 'All Categories' : c, value: c }))}
             placeholder={null}
           />
           <Select
             label="Max Price"
             value={maxPrice}
-            onChange={(e) => setMaxPrice(e.target.value)}
+            onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }}
             options={[
               { label: 'Any Price', value: 'all' },
               { label: 'Under ₹3,000', value: '3000' },
@@ -115,7 +124,7 @@ const PoojasPage = () => {
           <Select
             label="Location Type"
             value={locationType}
-            onChange={(e) => setLocationType(e.target.value)}
+            onChange={(e) => { setLocationType(e.target.value); setPage(1); }}
             options={[
               { label: 'All Formats', value: 'all' },
               { label: 'At Home', value: 'Home' },
@@ -127,7 +136,7 @@ const PoojasPage = () => {
           <Select
             label="Sort By"
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
+            onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
             options={[
               { label: 'Featured', value: 'featured' },
               { label: 'Price: Low to High', value: 'price-asc' },
@@ -139,30 +148,65 @@ const PoojasPage = () => {
         </div>
       </div>
 
-      {/* Grid Results or Skeleton or Empty State */}
+      {/* States: Loading / Error / Data / Empty */}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <CardSkeleton />
           <CardSkeleton />
           <CardSkeleton />
         </div>
-      ) : filteredPoojas.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPoojas.map((pooja) => (
-            <PoojaCard
-              key={pooja.id}
-              title={pooja.title}
-              description={pooja.shortDescription}
-              duration={pooja.duration}
-              price={pooja.price}
-              rating={pooja.rating}
-              reviewCount={pooja.reviewCount}
-              location={pooja.locationType}
-              tag={pooja.tag}
-              onBookClick={() => addToast(`Booking initiated for ${pooja.title}`, 'success')}
-            />
-          ))}
-        </div>
+      ) : error ? (
+        <ErrorState
+          title="Failed to Load Poojas"
+          description={error}
+          onRetry={fetchPoojas}
+        />
+      ) : poojas.length > 0 ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {poojas.map((pooja) => (
+              <PoojaCard
+                key={pooja._id || pooja.id}
+                title={pooja.name || pooja.title}
+                description={pooja.shortDescription}
+                duration={pooja.duration}
+                price={pooja.price}
+                rating={pooja.rating}
+                reviewCount={pooja.reviewCount}
+                location={pooja.cities?.join(', ') || 'At Home / Online'}
+                tag={pooja.occasion || 'Popular'}
+                onBookClick={() => addToast(`Booking initiated for ${pooja.name}`, 'success')}
+              />
+            ))}
+          </div>
+
+          {/* Pagination Controls */}
+          {pagination.pages > 1 && (
+            <div className="flex items-center justify-between border-t border-stone-200 pt-6">
+              <span className="text-xs text-stone-500">
+                Page {pagination.page} of {pagination.pages} ({pagination.total} total)
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  isDisabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  isDisabled={page >= pagination.pages}
+                  onClick={() => setPage((p) => Math.min(pagination.pages, p + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       ) : (
         <EmptyState
           title="No Poojas Found"

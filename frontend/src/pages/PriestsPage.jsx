@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ShieldCheck, RefreshCw } from 'lucide-react';
 import SearchBar from '../components/ui/SearchBar.jsx';
@@ -7,8 +7,9 @@ import Badge from '../components/ui/Badge.jsx';
 import Select from '../components/ui/Select.jsx';
 import Button from '../components/ui/Button.jsx';
 import EmptyState from '../components/feedback/EmptyState.jsx';
+import ErrorState from '../components/feedback/ErrorState.jsx';
 import { CardSkeleton } from '../components/feedback/LoadingSkeleton.jsx';
-import { priestsData } from '../data/priests.js';
+import { getPriests } from '../services/priestService.js';
 import { useToast } from '../components/feedback/ToastContext.jsx';
 
 const PriestsPage = () => {
@@ -21,40 +22,47 @@ const PriestsPage = () => {
   const [cityFilter, setCityFilter] = useState(initialCity);
   const [languageFilter, setLanguageFilter] = useState('all');
   const [sortBy, setSortBy] = useState('rating');
-  const [isLoading, setIsLoading] = useState(false);
+  const [page, setPage] = useState(1);
 
-  const filteredPriests = useMemo(() => {
-    return priestsData.filter((priest) => {
-      const matchesSearch =
-        priest.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        priest.specialization.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        priest.location.toLowerCase().includes(searchTerm.toLowerCase());
+  const [priests, setPriests] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, limit: 12, total: 0, pages: 1 });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-      const matchesCity =
-        cityFilter === 'all' || priest.city.toLowerCase() === cityFilter.toLowerCase();
+  const fetchPriests = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const params = {
+        search: searchTerm,
+        city: cityFilter,
+        language: languageFilter,
+        sortBy,
+        page,
+        limit: 9,
+      };
+      const result = await getPriests(params);
+      if (result.success) {
+        setPriests(result.data);
+        setPagination(result.pagination);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to fetch priests from API');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchTerm, cityFilter, languageFilter, sortBy, page]);
 
-      const matchesLanguage =
-        languageFilter === 'all' || priest.languages.includes(languageFilter);
-
-      return matchesSearch && matchesCity && matchesLanguage;
-    }).sort((a, b) => {
-      if (sortBy === 'rating') return b.rating - a.rating;
-      if (sortBy === 'price-asc') return a.startingPrice - b.startingPrice;
-      if (sortBy === 'price-desc') return b.startingPrice - a.startingPrice;
-      return 0;
-    });
-  }, [searchTerm, cityFilter, languageFilter, sortBy]);
+  useEffect(() => {
+    fetchPriests();
+  }, [fetchPriests]);
 
   const handleResetFilters = () => {
     setSearchTerm('');
     setCityFilter('all');
     setLanguageFilter('all');
     setSortBy('rating');
-  };
-
-  const simulateLoading = () => {
-    setIsLoading(true);
-    setTimeout(() => setIsLoading(false), 500);
+    setPage(1);
   };
 
   return (
@@ -69,12 +77,12 @@ const PriestsPage = () => {
             Verified Vedic Priests
           </h1>
           <p className="text-sm text-stone-600 max-w-2xl mt-1">
-            Connect with background-verified pandits and acharyas trained in authentic Vedic traditions across major Indian cities.
+            Connect with background-verified pandits and acharyas trained in authentic Vedic traditions.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" leftIcon={<RefreshCw className="w-3.5 h-3.5" />} onClick={simulateLoading}>
+          <Button variant="outline" size="sm" leftIcon={<RefreshCw className="w-3.5 h-3.5" />} onClick={fetchPriests}>
             Refresh
           </Button>
         </div>
@@ -85,14 +93,17 @@ const PriestsPage = () => {
         <SearchBar
           placeholder="Search priest by name, city, or ritual specialization..."
           value={searchTerm}
-          onChange={setSearchTerm}
+          onChange={(val) => {
+            setSearchTerm(val);
+            setPage(1);
+          }}
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-stone-100">
           <Select
             label="City"
             value={cityFilter}
-            onChange={(e) => setCityFilter(e.target.value)}
+            onChange={(e) => { setCityFilter(e.target.value); setPage(1); }}
             options={[
               { label: 'All Cities', value: 'all' },
               { label: 'Bengaluru', value: 'Bengaluru' },
@@ -105,7 +116,7 @@ const PriestsPage = () => {
           <Select
             label="Language Fluency"
             value={languageFilter}
-            onChange={(e) => setLanguageFilter(e.target.value)}
+            onChange={(e) => { setLanguageFilter(e.target.value); setPage(1); }}
             options={[
               { label: 'All Languages', value: 'all' },
               { label: 'Sanskrit', value: 'Sanskrit' },
@@ -120,7 +131,7 @@ const PriestsPage = () => {
           <Select
             label="Sort By"
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
+            onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
             options={[
               { label: 'Highest Rated', value: 'rating' },
               { label: 'Dakshina: Low to High', value: 'price-asc' },
@@ -131,33 +142,68 @@ const PriestsPage = () => {
         </div>
       </div>
 
-      {/* Grid Results or Skeleton or Empty State */}
+      {/* States: Loading / Error / Data / Empty */}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <CardSkeleton />
           <CardSkeleton />
           <CardSkeleton />
         </div>
-      ) : filteredPriests.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPriests.map((priest) => (
-            <PriestCard
-              key={priest.id}
-              name={priest.name}
-              isVerified={priest.isVerified}
-              experience={priest.experience}
-              languages={priest.languages}
-              specialization={priest.specialization}
-              location={priest.location}
-              rating={priest.rating}
-              reviewCount={priest.reviewCount}
-              isAvailable={priest.isAvailable}
-              startingPrice={priest.startingPrice}
-              onViewProfile={() => addToast(`Viewing profile of ${priest.name}`, 'info')}
-              onBookNow={() => addToast(`Booking pandit ${priest.name}`, 'success')}
-            />
-          ))}
-        </div>
+      ) : error ? (
+        <ErrorState
+          title="Failed to Load Priests"
+          description={error}
+          onRetry={fetchPriests}
+        />
+      ) : priests.length > 0 ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {priests.map((priest) => (
+              <PriestCard
+                key={priest._id || priest.id}
+                name={priest.name}
+                isVerified={priest.verificationStatus === 'APPROVED'}
+                experience={priest.experience}
+                languages={priest.languages}
+                specialization={priest.specializations || priest.specialization}
+                location={priest.city || priest.location}
+                rating={priest.rating}
+                reviewCount={priest.reviewCount}
+                isAvailable={priest.availability}
+                startingPrice={priest.startingPrice}
+                onViewProfile={() => addToast(`Viewing profile of ${priest.name}`, 'info')}
+                onBookNow={() => addToast(`Booking pandit ${priest.name}`, 'success')}
+              />
+            ))}
+          </div>
+
+          {/* Pagination Controls */}
+          {pagination.pages > 1 && (
+            <div className="flex items-center justify-between border-t border-stone-200 pt-6">
+              <span className="text-xs text-stone-500">
+                Page {pagination.page} of {pagination.pages} ({pagination.total} total)
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  isDisabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  isDisabled={page >= pagination.pages}
+                  onClick={() => setPage((p) => Math.min(pagination.pages, p + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       ) : (
         <EmptyState
           title="No Verified Priests Found"
