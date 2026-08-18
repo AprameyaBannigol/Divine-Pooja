@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { NavLink, Link } from 'react-router-dom';
-import { Flame, Menu, X, Search, User } from 'lucide-react';
+import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { Flame, Menu, X, User, LogOut, ShieldCheck } from 'lucide-react';
 import Button from '../ui/Button.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
+import { useToast } from '../feedback/ToastContext.jsx';
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, isAuthenticated, logout } = useAuth();
+  const { addToast } = useToast();
+  const navigate = useNavigate();
 
   const navItems = [
     { name: 'Home', path: '/' },
@@ -14,6 +19,17 @@ const Navbar = () => {
     { name: 'Temples', path: '/temples' },
     { name: 'Blog', path: '/blog' },
   ];
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      addToast('Signed out successfully', 'info');
+      setIsMobileMenuOpen(false);
+      navigate('/', { replace: true });
+    } catch {
+      addToast('Logout failed', 'error');
+    }
+  };
 
   const linkClass = ({ isActive }) =>
     `text-sm font-medium transition-colors px-3 py-2 rounded-lg ${
@@ -50,21 +66,47 @@ const Navbar = () => {
             ))}
           </nav>
 
-          {/* Action Placeholders (Search & Book) */}
+          {/* User Auth Action Controls */}
           <div className="hidden sm:flex items-center space-x-3">
-            <button
-              type="button"
-              className="p-2 text-stone-600 hover:text-amber-700 hover:bg-stone-100 rounded-lg transition-colors"
-              aria-label="Search"
-            >
-              <Search className="w-5 h-5" />
-            </button>
-            <Button variant="outline" size="sm" leftIcon={<User className="w-4 h-4" />}>
-              Sign In
-            </Button>
-            <Button variant="primary" size="sm">
-              Book Pooja
-            </Button>
+            {isAuthenticated && user ? (
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/account"
+                  className="flex items-center gap-2 bg-stone-100 hover:bg-amber-50 text-stone-800 hover:text-amber-800 px-3 py-1.5 rounded-xl transition-all border border-stone-200 text-xs font-semibold"
+                >
+                  <div className="w-6 h-6 rounded-full bg-amber-600 text-white font-bold flex items-center justify-center text-xs font-serif">
+                    {user.name?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  <span>{user.name?.split(' ')[0]}</span>
+                  {user.role !== 'USER' && (
+                    <span className="bg-amber-200 text-amber-900 text-[10px] px-1.5 py-0.2 rounded uppercase font-bold">
+                      {user.role}
+                    </span>
+                  )}
+                </Link>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  leftIcon={<LogOut className="w-3.5 h-3.5" />}
+                >
+                  Sign Out
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Link to="/login">
+                  <Button variant="outline" size="sm" leftIcon={<User className="w-4 h-4" />}>
+                    Sign In
+                  </Button>
+                </Link>
+                <Link to="/register">
+                  <Button variant="primary" size="sm">
+                    Get Started
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -96,12 +138,31 @@ const Navbar = () => {
             ))}
           </nav>
           <div className="pt-4 border-t border-stone-100 flex flex-col gap-2.5">
-            <Button variant="outline" size="md" fullWidth leftIcon={<User className="w-4 h-4" />}>
-              Sign In
-            </Button>
-            <Button variant="primary" size="md" fullWidth>
-              Book Pooja
-            </Button>
+            {isAuthenticated && user ? (
+              <>
+                <Link to="/account" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button variant="outline" size="md" fullWidth leftIcon={<ShieldCheck className="w-4 h-4 text-amber-600" />}>
+                    Account ({user.name})
+                  </Button>
+                </Link>
+                <Button variant="primary" size="md" fullWidth onClick={handleLogout} leftIcon={<LogOut className="w-4 h-4" />}>
+                  Sign Out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button variant="outline" size="md" fullWidth leftIcon={<User className="w-4 h-4" />}>
+                    Sign In
+                  </Button>
+                </Link>
+                <Link to="/register" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button variant="primary" size="md" fullWidth>
+                    Get Started
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}

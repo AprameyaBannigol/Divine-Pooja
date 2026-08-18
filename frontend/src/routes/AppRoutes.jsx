@@ -7,6 +7,10 @@ import PriestsPage from '../pages/PriestsPage.jsx';
 import MuhurtaPage from '../pages/MuhurtaPage.jsx';
 import TemplesPage from '../pages/TemplesPage.jsx';
 import BlogsPage from '../pages/BlogsPage.jsx';
+import LoginPage from '../pages/LoginPage.jsx';
+import RegisterPage from '../pages/RegisterPage.jsx';
+import AccountPage from '../pages/AccountPage.jsx';
+import ProtectedRoute from '../components/auth/ProtectedRoute.jsx';
 
 const AppRoutes = () => {
   return (
@@ -19,6 +23,16 @@ const AppRoutes = () => {
         <Route path="temples" element={<TemplesPage />} />
         <Route path="blog" element={<BlogsPage />} />
         <Route path="blogs" element={<BlogsPage />} />
+        <Route path="login" element={<LoginPage />} />
+        <Route path="register" element={<RegisterPage />} />
+        <Route
+          path="account"
+          element={
+            <ProtectedRoute>
+              <AccountPage />
+            </ProtectedRoute>
+          }
+        />
       </Route>
     </Routes>
   );
