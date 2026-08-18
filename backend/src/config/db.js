@@ -1,12 +1,18 @@
-import mongoose from 'express'; // placeholder import concept, or mongoose
-
-import mongooseClient from 'mongoose';
+import mongoose from 'mongoose';
 
 export const connectDB = async () => {
+  const uri = process.env.MONGODB_URI;
+
+  if (!uri) {
+    throw new Error('Database Configuration Error: MONGODB_URI environment variable is missing.');
+  }
+
   try {
-    const conn = await mongooseClient.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/divine_pooja');
+    const conn = await mongoose.connect(uri);
     console.log(`MongoDB Connected: ${conn.connection.host}`);
+    return conn;
   } catch (error) {
-    console.error(`Database Connection Error: ${error.message}`);
+    console.error(`MongoDB Connection Error: ${error.message}`);
+    throw error;
   }
 };
