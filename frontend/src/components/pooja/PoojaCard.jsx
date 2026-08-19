@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Clock, MapPin, Sparkles } from 'lucide-react';
 import Card from '../ui/Card.jsx';
 import Badge from '../ui/Badge.jsx';
@@ -6,6 +7,7 @@ import Rating from '../ui/Rating.jsx';
 import Button from '../ui/Button.jsx';
 
 const PoojaCard = ({
+  id = null,
   title = 'Satyanarayan Pooja & Katha',
   description = 'Complete traditional Satyanarayan Pooja performed by experienced Vedic priests for peace, prosperity and family well-being.',
   image = null,
@@ -17,6 +19,15 @@ const PoojaCard = ({
   tag = 'Popular',
   onBookClick = null,
 }) => {
+  const navigate = useNavigate();
+
+  const handleBookClick = (e) => {
+    if (onBookClick) {
+      onBookClick(e);
+    } else if (id) {
+      navigate(`/book/${id}`);
+    }
+  };
   return (
     <Card hoverable className="flex flex-col h-full overflow-hidden p-0 rounded-2xl group">
       {/* Card Image / Placeholder Surface */}
@@ -82,7 +93,7 @@ const PoojaCard = ({
           <Button
             variant="primary"
             size="sm"
-            onClick={onBookClick}
+            onClick={handleBookClick}
           >
             Book Pooja
           </Button>

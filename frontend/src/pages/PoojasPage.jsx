@@ -166,8 +166,9 @@ const PoojasPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {poojas.map((pooja) => (
               <PoojaCard
-                key={pooja._id || pooja.id}
-                title={pooja.name || pooja.title}
+                key={pooja._id}
+                id={pooja._id}
+                title={pooja.name}
                 description={pooja.shortDescription}
                 duration={pooja.duration}
                 price={pooja.price}
@@ -175,7 +176,6 @@ const PoojasPage = () => {
                 reviewCount={pooja.reviewCount}
                 location={pooja.cities?.join(', ') || 'At Home / Online'}
                 tag={pooja.occasion || 'Popular'}
-                onBookClick={() => addToast(`Booking initiated for ${pooja.name}`, 'success')}
               />
             ))}
           </div>

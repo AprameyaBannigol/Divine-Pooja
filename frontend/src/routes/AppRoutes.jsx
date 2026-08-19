@@ -10,6 +10,7 @@ import BlogsPage from '../pages/BlogsPage.jsx';
 import LoginPage from '../pages/LoginPage.jsx';
 import RegisterPage from '../pages/RegisterPage.jsx';
 import AccountPage from '../pages/AccountPage.jsx';
+import BookingPage from '../pages/BookingPage.jsx';
 import ProtectedRoute from '../components/auth/ProtectedRoute.jsx';
 
 const AppRoutes = () => {
@@ -25,6 +26,14 @@ const AppRoutes = () => {
         <Route path="blogs" element={<BlogsPage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
+        <Route
+          path="book/:poojaId"
+          element={
+            <ProtectedRoute>
+              <BookingPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="account"
           element={

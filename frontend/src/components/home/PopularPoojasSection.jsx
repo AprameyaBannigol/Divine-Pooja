@@ -1,15 +1,41 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import PoojaCard from '../pooja/PoojaCard.jsx';
 import Button from '../ui/Button.jsx';
 import Badge from '../ui/Badge.jsx';
-import { poojasData } from '../../data/poojas.js';
-import { useToast } from '../feedback/ToastContext.jsx';
+import { CardSkeleton } from '../feedback/LoadingSkeleton.jsx';
+import { getPoojas } from '../../services/poojaService.js';
+import { poojasData as fallbackPoojas } from '../../data/poojas.js';
 
 const PopularPoojasSection = () => {
-  const { addToast } = useToast();
-  const popularPoojas = poojasData.slice(0, 3);
+  const [poojas, setPoojas] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPopular = async () => {
+      try {
+        const res = await getPoojas({ limit: 3, sortBy: 'featured' });
+        if (isMounted && res.success && res.data && res.data.length > 0) {
+          setPoojas(res.data);
+        } else if (isMounted) {
+          setPoojas(fallbackPoojas.slice(0, 3));
+        }
+      } catch (err) {
+        if (isMounted) {
+          setPoojas(fallbackPoojas.slice(0, 3));
+        }
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    fetchPopular();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <section className="space-y-8">
@@ -33,22 +59,30 @@ const PopularPoojasSection = () => {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {popularPoojas.map((pooja) => (
-          <PoojaCard
-            key={pooja.id}
-            title={pooja.title}
-            description={pooja.shortDescription}
-            duration={pooja.duration}
-            price={pooja.price}
-            rating={pooja.rating}
-            reviewCount={pooja.reviewCount}
-            location={pooja.locationType}
-            tag={pooja.tag}
-            onBookClick={() => addToast(`Booking initiated for ${pooja.title}`, 'success')}
-          />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {poojas.map((pooja) => (
+            <PoojaCard
+              key={pooja._id || pooja.id}
+              id={pooja._id || pooja.id}
+              title={pooja.name || pooja.title}
+              description={pooja.shortDescription}
+              duration={pooja.duration}
+              price={pooja.price}
+              rating={pooja.rating}
+              reviewCount={pooja.reviewCount}
+              location={pooja.cities?.join(', ') || pooja.locationType || 'At Home / Online'}
+              tag={pooja.occasion || pooja.tag || 'Popular'}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 };
